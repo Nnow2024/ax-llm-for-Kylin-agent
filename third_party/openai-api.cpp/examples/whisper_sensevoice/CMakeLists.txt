@@ -1,0 +1,2 @@
+add_executable(openai_api_example_whisper main.cpp)
+target_link_libraries(openai_api_example_whisper PRIVATE openai_api::server)

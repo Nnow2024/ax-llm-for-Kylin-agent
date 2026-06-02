@@ -1,0 +1,3 @@
+add_subdirectory(qwen_server)
+add_subdirectory(whisper_sensevoice)
+add_subdirectory(cluster)
