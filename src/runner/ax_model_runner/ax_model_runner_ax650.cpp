@@ -429,7 +429,13 @@ int ax_runner_ax650::init(char *model_buffer, size_t model_size, int /*devid*/)
         m_handle = nullptr;
         return ret;
     }
-    return sub_init();
+    ret = sub_init();
+    if (ret != 0)
+    {
+        deinit();
+        return ret;
+    }
+    return 0;
 }
 
 void ax_runner_ax650::deinit()

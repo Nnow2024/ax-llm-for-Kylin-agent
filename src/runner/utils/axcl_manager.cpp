@@ -18,11 +18,13 @@ axclError axcl_Init(int devid)
         ALOGI("AXCL device %d already inited\n", devid);
         return 0;
     }
-    g_devices[devid] = std::make_shared<AXCLWorker>();
-    if (!g_devices[devid]->Run(devid))
+    auto worker = std::make_shared<AXCLWorker>();
+    if (!worker->Run(devid))
     {
+        worker->Stop();
         return -1;
     }
+    g_devices[devid] = std::move(worker);
     return 0;
 }
 

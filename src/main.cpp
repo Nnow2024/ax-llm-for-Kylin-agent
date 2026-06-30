@@ -726,6 +726,7 @@ int run_interactive_mode(ModelConfig &config)
     if (!g_llm.Init(config.attr))
     {
         ALOGE("LLM.Init failed");
+        g_llm.Deinit();
 #if USE_AXCL
         axclFinalize();
 #else
@@ -1371,6 +1372,7 @@ int run_server_mode(const ModelConfig &config, int port)
     if (!llm.Init(config.attr))
     {
         ALOGE("LLM.Init failed");
+        llm.Deinit();
 #if USE_AXCL
         axclFinalize();
 #else
