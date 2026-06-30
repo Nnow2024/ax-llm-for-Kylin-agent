@@ -41,8 +41,8 @@ public:
 
     bool open_file(const char *file)
     {
-#ifdef _WIN32
         close_file();
+#ifdef _WIN32
 
         _file_handle = CreateFileA(file, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (_file_handle == INVALID_HANDLE_VALUE)

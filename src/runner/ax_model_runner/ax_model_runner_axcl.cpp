@@ -140,8 +140,10 @@ static int prepare_io_with_alloc(int grpid, axclrtEngineIOInfo io_info, axclrtEn
         input[i].pVirAddr = malloc(input[i].nSize);
         if (input[i].pVirAddr == nullptr)
         {
-            printf("malloc failed, ret: %d\n", ret);
-            return ret;
+            printf("malloc failed, size: %d\n", input[i].nSize);
+            axcl_Free(devPtr, _devid);
+            input[i].phyAddr = 0;
+            return -1;
         }
         memset(input[i].pVirAddr, 0, input[i].nSize);
         axcl_Memset(devPtr, 0, input[i].nSize, _devid);
@@ -164,8 +166,10 @@ static int prepare_io_with_alloc(int grpid, axclrtEngineIOInfo io_info, axclrtEn
         output[i].pVirAddr = malloc(output[i].nSize);
         if (output[i].pVirAddr == nullptr)
         {
-            printf("malloc failed, ret: %d\n", ret);
-            return ret;
+            printf("malloc failed, size: %d\n", output[i].nSize);
+            axcl_Free(devPtr, _devid);
+            output[i].phyAddr = 0;
+            return -1;
         }
         memset(output[i].pVirAddr, 0, output[i].nSize);
         axcl_Memset(devPtr, 0, output[i].nSize, _devid);
@@ -390,9 +394,17 @@ int ax_runner_axcl::init(const char *model_file, int devid)
     if (0 != ret)
     {
         ALOGE("AX_ENGINE_CreateHandle");
+        delete m_handle;
+        m_handle = nullptr;
         return ret;
     }
-    return sub_init();
+    ret = sub_init();
+    if (ret != 0)
+    {
+        deinit();
+        return ret;
+    }
+    return 0;
 }
 
 int ax_runner_axcl::init(char *model_buffer, size_t model_size, int devid)
@@ -405,19 +417,32 @@ int ax_runner_axcl::init(char *model_buffer, size_t model_size, int devid)
     this->dev_id = devid;
 
     void *devMem = nullptr;
-    axcl_Malloc(&devMem, model_size, AXCL_MEM_MALLOC_NORMAL_ONLY, dev_id);
+    int ret = axcl_Malloc(&devMem, model_size, AXCL_MEM_MALLOC_NORMAL_ONLY, dev_id);
+    if (ret != 0)
+    {
+        ALOGE("axcl_Malloc model buffer failed, ret=%d", ret);
+        return ret;
+    }
 
     axcl_Memcpy(devMem, model_buffer, model_size, AXCL_MEMCPY_HOST_TO_DEVICE, dev_id);
 
-    int ret = axcl_EngineLoadFromMem(devMem, model_size, &m_handle->handle, dev_id);
+    ret = axcl_EngineLoadFromMem(devMem, model_size, &m_handle->handle, dev_id);
+    axcl_Free(devMem, dev_id);
     if (0 != ret)
     {
         ALOGE("AX_ENGINE_CreateHandle");
+        delete m_handle;
+        m_handle = nullptr;
         return ret;
     }
-    axcl_Free(devMem, dev_id);
 
-    return sub_init();
+    ret = sub_init();
+    if (ret != 0)
+    {
+        deinit();
+        return ret;
+    }
+    return 0;
 }
 
 void ax_runner_axcl::deinit()
@@ -430,12 +455,12 @@ void ax_runner_axcl::deinit()
         {
             for (auto &tensor : mgroup_output_tensors[grpid])
             {
-                if (free_phy_addr.end() == std::find(free_phy_addr.begin(), free_phy_addr.end(), tensor.phyAddr))
+                if (tensor.phyAddr && free_phy_addr.end() == std::find(free_phy_addr.begin(), free_phy_addr.end(), tensor.phyAddr))
                 {
                     axcl_Free((void *)tensor.phyAddr, dev_id);
                     free_phy_addr.push_back(tensor.phyAddr);
                 }
-                if (free_vir_addr.end() == std::find(free_vir_addr.begin(), free_vir_addr.end(), tensor.pVirAddr))
+                if (tensor.pVirAddr && free_vir_addr.end() == std::find(free_vir_addr.begin(), free_vir_addr.end(), tensor.pVirAddr))
                 {
                     free(tensor.pVirAddr);
                     free_vir_addr.push_back(tensor.pVirAddr);
@@ -443,12 +468,12 @@ void ax_runner_axcl::deinit()
             }
             for (auto &tensor : mgroup_input_tensors[grpid])
             {
-                if (free_phy_addr.end() == std::find(free_phy_addr.begin(), free_phy_addr.end(), tensor.phyAddr))
+                if (tensor.phyAddr && free_phy_addr.end() == std::find(free_phy_addr.begin(), free_phy_addr.end(), tensor.phyAddr))
                 {
                     axcl_Free((void *)tensor.phyAddr, dev_id);
                     free_phy_addr.push_back(tensor.phyAddr);
                 }
-                if (free_vir_addr.end() == std::find(free_vir_addr.begin(), free_vir_addr.end(), tensor.pVirAddr))
+                if (tensor.pVirAddr && free_vir_addr.end() == std::find(free_vir_addr.begin(), free_vir_addr.end(), tensor.pVirAddr))
                 {
                     free(tensor.pVirAddr);
                     free_vir_addr.push_back(tensor.pVirAddr);

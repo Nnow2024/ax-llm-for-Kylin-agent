@@ -11,6 +11,9 @@ protected:
     int sub_init();
 
 public:
+    ax_runner_axcl() = default;
+    virtual ~ax_runner_axcl() { deinit(); }
+
     int init(const char *model_file, int devid) override;
     int init(char *model_buffer, size_t model_size, int devid) override;
 

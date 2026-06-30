@@ -2058,13 +2058,19 @@ struct LLM::Impl {
 
     void Deinit()
     {
-        for (int i = 0; i < _attr.axmodel_num; i++) llama_layers[i].layer.deinit();
+        for (auto &lyr : llama_layers) lyr.layer.deinit();
+        llama_layers.clear();
         llama_post.deinit();
         embed_selector.Deinit();
         gemma4_per_layer_helper.Deinit();
-        if (vision) vision->Deinit();
+        if (vision)
+        {
+            vision->Deinit();
+            vision.reset();
+        }
 #ifdef USE_AXCL
         for (auto &devid : _attr.dev_ids) axcl_Exit(devid);
+        _attr.dev_ids.clear();
 #endif
     }
 
@@ -2778,7 +2784,7 @@ struct LLM::Impl {
 
     void ResetKVCache()
     {
-        last_tokens_ids.clear(); last_history_snapshot.clear(); run_input_token_ids.clear(); last_run_generated_token_ids.clear(); k_caches.clear(); v_caches.clear(); precompute_len = 0; cached_mrope_next_pos = -1; active_prefill_pos_start = -1; active_token_pos_start = -1; reset_full_cache_slot_state();
+        last_tokens_ids.clear(); last_history_snapshot.clear(); run_input_token_ids.clear(); last_run_generated_token_ids.clear(); k_caches.clear(); v_caches.clear(); precompute_len = 0; cached_mrope_next_pos = -1; active_prefill_pos_start = -1; active_token_pos_start = -1; gemma4_per_layer_helper.ClearDecodeCache(); reset_full_cache_slot_state();
         decode_grpid = decode_grpids_.empty() ? 0 : decode_grpids_.back();
         _attr.prefill_grpid = prefill_grpids_.empty() ? 1 : prefill_grpids_.back();
         if (!_attr.prefill_max_kv_cache_num_grp.empty())
@@ -3855,9 +3861,17 @@ struct LLM::Impl {
 // Public LLM thin wrappers
 
 LLM::LLM() : impl_(new Impl()) {}
-LLM::~LLM() = default;
+LLM::~LLM() { impl_->Deinit(); }
 
-bool LLM::Init(LLMAttrType attr) { return impl_->Init(std::move(attr)); }
+bool LLM::Init(LLMAttrType attr)
+{
+    if (!impl_->Init(std::move(attr)))
+    {
+        impl_->Deinit();
+        return false;
+    }
+    return true;
+}
 void LLM::Deinit() { impl_->Deinit(); }
 void LLM::Stop() { impl_->Stop(); }
 

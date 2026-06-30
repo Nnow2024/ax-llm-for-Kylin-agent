@@ -19,6 +19,7 @@ class LLaMaEmbedSelector
 public:
     bool Init(std::string embed_path, unsigned int token_num, unsigned int embed_size, bool use_mmap = false)
     {
+        Deinit();
         _token_num = token_num;
         _embed_size = embed_size;
         _use_mmap = use_mmap;
